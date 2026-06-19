@@ -10,3 +10,5 @@ python-dotenv==1.0.1    # Variables de entorno desde .env
 google-genai>=0.3.0     # IA Gemini para Chatbot
 fpdf2>=2.7.9            # Generación automática de PDFs
 PyPDF2>=3.0.0           # Lectura de PDFs para resúmenes de I
+gunicorn>=23.0.0        # Servidor WSGI de producción para la nube
+

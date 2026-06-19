@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: sistema-clinico-citas
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sistema-clinico-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false  # Se debe configurar en la interfaz de Render con tu API key de Gemini
+
+databases:
+  - name: sistema-clinico-db
+    plan: free

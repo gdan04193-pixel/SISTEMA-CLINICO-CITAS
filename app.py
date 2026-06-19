@@ -41,11 +41,13 @@ def create_app():
     app.config["SESSION_COOKIE_SECURE"]   = False
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
 
-    # ── Base de datos (PostgreSQL) ────────────────────────────────────────────
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    db_url = os.environ.get(
         "DATABASE_URL",
         "postgresql://postgres:postgres@localhost:5432/docvault" # Mantenemos db actual por simplicidad, o healthvault
     )
+    if db_url and db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     # ── Subida de archivos ────────────────────────────────────────────────────
