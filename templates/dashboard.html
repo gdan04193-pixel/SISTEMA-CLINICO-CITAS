@@ -1,0 +1,262 @@
+{# templates/dashboard.html — Lista de documentos con búsqueda y filtros #}
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+
+  {# ── Encabezado ── #}
+  <header class="dash-header">
+    <div class="dash-title-block">
+      <h1 class="dash-title">Repositorio Documental</h1>
+      <p class="dash-subtitle">{{ stats.total }} documentos activos en el sistema</p>
+    </div>
+    {% if current_user.can_upload() %}
+    <a href="{{ url_for('upload') }}" class="btn-primary">
+      + Subir Documento
+    </a>
+    {% endif %}
+  </header>
+
+  {# ── Tarjetas de estadísticas por sector ── #}
+  <div class="stats-row">
+    <a href="{{ url_for('dashboard') }}" class="stat-card {% if not sector_filter %}active{% endif %}">
+      <span class="stat-num">{{ stats.total }}</span>
+      <span class="stat-label">Total</span>
+    </a>
+    <a href="{{ url_for('dashboard', sector='clinica') }}" class="stat-card sector-clinica {% if sector_filter == 'clinica' %}active{% endif %}">
+      <span class="stat-icon">🏥</span>
+      <span class="stat-num">{{ stats.clinica }}</span>
+      <span class="stat-label">Clínica</span>
+    </a>
+    <a href="{{ url_for('dashboard', sector='farmacia') }}" class="stat-card sector-farmacia {% if sector_filter == 'farmacia' %}active{% endif %}">
+      <span class="stat-icon">⚖️</span>
+      <span class="stat-num">{{ stats.farmacia }}</span>
+      <span class="stat-label">Farmacia</span>
+    </a>
+    <a href="{{ url_for('dashboard', sector='laboratorio') }}" class="stat-card sector-laboratorio {% if sector_filter == 'laboratorio' %}active{% endif %}">
+      <span class="stat-icon">🏛️</span>
+      <span class="stat-num">{{ stats.laboratorio }}</span>
+      <span class="stat-label">Laboratorio</span>
+    </a>
+  </div>
+
+
+  {# ── Búsqueda ── #}
+  <form method="GET" action="{{ url_for('dashboard') }}" class="search-bar">
+    {% if sector_filter %}
+    <input type="hidden" name="sector" value="{{ sector_filter }}" />
+    {% endif %}
+    <input
+      type="search"
+      name="q"
+      class="search-input"
+      placeholder="Buscar por título, descripción o etiqueta…"
+      value="{{ search_query }}"
+      maxlength="200"
+    />
+    <button type="submit" class="btn-search">Buscar</button>
+    {% if search_query %}
+    <a href="{{ url_for('dashboard', sector=sector_filter) }}" class="btn-clear">✕ Limpiar</a>
+    {% endif %}
+  </form>
+
+  {# ── Alternador de Vistas y Grid de Tarjetas ── #}
+  {% if docs.items %}
+  <div class="view-controls">
+    <div class="layout-toggle-container">
+      <button type="button" id="toggleGridView" class="layout-toggle-btn active" onclick="setLayout('grid')">
+        <span class="icon">🗂️</span> Vista Cuadrícula
+      </button>
+      <button type="button" id="toggleListView" class="layout-toggle-btn" onclick="setLayout('list')">
+        <span class="icon">📋</span> Vista Tabla
+      </button>
+    </div>
+  </div>
+
+  <div id="docContainer" class="doc-container layout-grid">
+    
+    {# ── Vista en Cuadrícula (Cards) ── #}
+    <div class="grid-layout">
+      {% for doc in docs.items %}
+      <div class="doc-card sector-{{ doc.sector }}">
+        <div class="card-badge-row">
+          <span class="sector-badge sector-{{ doc.sector }}">{{ doc.sector | capitalize }}</span>
+          <span class="card-size mono">{{ doc.size_human() }}</span>
+        </div>
+        <div class="card-content">
+          <div class="card-file-type">
+            {% if doc.mime_type and 'pdf' in doc.mime_type %}
+            <span class="file-icon pdf">📄 PDF</span>
+            {% elif doc.mime_type and ('word' in doc.mime_type or 'document' in doc.mime_type) %}
+            <span class="file-icon word">📝 DOCX</span>
+            {% elif doc.mime_type and ('sheet' in doc.mime_type or 'excel' in doc.mime_type) %}
+            <span class="file-icon excel">📊 XLSX</span>
+            {% elif doc.mime_type and 'image' in doc.mime_type %}
+            <span class="file-icon image">🖼️ IMAGEN</span>
+            {% else %}
+            <span class="file-icon generic">📁 ARCHIVO</span>
+            {% endif %}
+          </div>
+          <h3 class="card-title">
+            <a href="{{ url_for('document_detail', doc_id=doc.id) }}" class="card-link">
+              {{ doc.title }}
+            </a>
+          </h3>
+          <p class="card-desc">{{ doc.description or 'Sin descripción disponible.' }}</p>
+          {% if doc.tag_list() %}
+          <div class="doc-tags">
+            {% for tag in doc.tag_list() %}
+            <span class="tag">{{ tag }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-footer">
+          <div class="card-meta">
+            <span class="card-owner" title="Subido por">👤 {{ doc.owner.username }}</span>
+            <span class="card-date mono">📅 {{ doc.created_at.strftime('%d/%m/%Y') }}</span>
+          </div>
+          <div class="card-actions">
+            <a href="{{ url_for('download', doc_id=doc.id) }}" class="btn-action btn-download" title="Descargar">
+              ↓
+            </a>
+            <a href="{{ url_for('document_detail', doc_id=doc.id) }}" class="btn-action btn-view" title="Ver detalle">
+              ◎
+            </a>
+            {% if current_user.can_delete(doc) %}
+            <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}"
+                  style="display:inline"
+                  onsubmit="confirmDelete(event, this, '¿Eliminar este documento? Esta acción no se puede deshacer.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <button type="submit" class="btn-action btn-delete" title="Eliminar">✕</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# ── Vista en Tabla ── #}
+    <div class="table-layout" style="display: none;">
+      <div class="doc-table-wrapper">
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Documento</th>
+              <th>Sector</th>
+              <th>Tamaño</th>
+              <th>Subido por</th>
+              <th>Fecha</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for doc in docs.items %}
+            <tr class="doc-row">
+              <td class="doc-title-cell">
+                <a href="{{ url_for('document_detail', doc_id=doc.id) }}" class="doc-link">
+                  {{ doc.title }}
+                </a>
+                {% if doc.tag_list() %}
+                <div class="doc-tags">
+                  {% for tag in doc.tag_list() %}
+                  <span class="tag">{{ tag }}</span>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </td>
+              <td>
+                <span class="sector-badge sector-{{ doc.sector }}">
+                  {{ doc.sector | capitalize }}
+                </span>
+              </td>
+              <td class="mono">{{ doc.size_human() }}</td>
+              <td>{{ doc.owner.username }}</td>
+              <td class="mono">{{ doc.created_at.strftime('%d/%m/%Y') }}</td>
+              <td class="actions-cell">
+                <a href="{{ url_for('download', doc_id=doc.id) }}" class="btn-action btn-download" title="Descargar">
+                  ↓
+                </a>
+                <a href="{{ url_for('document_detail', doc_id=doc.id) }}" class="btn-action btn-view" title="Ver detalle">
+                  ◎
+                </a>
+                {% if current_user.can_delete(doc) %}
+                <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}"
+                      style="display:inline"
+                      onsubmit="confirmDelete(event, this, '¿Eliminar este documento? Esta acción no se puede deshacer.')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button type="submit" class="btn-action btn-delete" title="Eliminar">✕</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+  </div>
+
+  {# ── Paginación ── #}
+  {% if docs.pages > 1 %}
+  <nav class="pagination">
+    {% if docs.has_prev %}
+    <a href="{{ url_for('dashboard', page=docs.prev_num, sector=sector_filter, q=search_query) }}" class="page-btn">← Anterior</a>
+    {% endif %}
+    <span class="page-info">Página {{ docs.page }} de {{ docs.pages }}</span>
+    {% if docs.has_next %}
+    <a href="{{ url_for('dashboard', page=docs.next_num, sector=sector_filter, q=search_query) }}" class="page-btn">Siguiente →</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📂</div>
+    <p class="empty-msg">
+      {% if search_query %}
+        No se encontraron documentos para «{{ search_query }}».
+      {% else %}
+        No hay documentos en este sector todavía.
+      {% endif %}
+    </p>
+    {% if current_user.can_upload() %}
+    <a href="{{ url_for('upload') }}" class="btn-primary">Subir el primero</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <script>
+  function setLayout(layout) {
+    const gridLayout = document.querySelector('.grid-layout');
+    const tableLayout = document.querySelector('.table-layout');
+    const gridBtn = document.getElementById('toggleGridView');
+    const listBtn = document.getElementById('toggleListView');
+    
+    if (layout === 'grid') {
+      if (gridLayout) gridLayout.style.display = 'grid';
+      if (tableLayout) tableLayout.style.display = 'none';
+      if (gridBtn) gridBtn.classList.add('active');
+      if (listBtn) listBtn.classList.remove('active');
+      localStorage.setItem('docvault-layout', 'grid');
+    } else {
+      if (gridLayout) gridLayout.style.display = 'none';
+      if (tableLayout) tableLayout.style.display = 'block';
+      if (gridBtn) gridBtn.classList.remove('active');
+      if (listBtn) listBtn.classList.add('active');
+      localStorage.setItem('docvault-layout', 'list');
+    }
+  }
+
+  // Restaurar layout preferido al cargar
+  document.addEventListener('DOMContentLoaded', () => {
+    const savedLayout = localStorage.getItem('docvault-layout') || 'grid';
+    setLayout(savedLayout);
+  });
+  </script>
+  
+
+{% endblock %}

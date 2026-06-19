@@ -1,0 +1,59 @@
+{# templates/admin_users.html #}
+{% extends "base.html" %}
+{% block title %}Administrar Usuarios{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+  <header class="dash-header">
+    <h1 class="dash-title">Gestión de Usuarios</h1>
+    <a href="{{ url_for('admin_audit') }}" class="btn-secondary">Ver Log de Auditoría</a>
+  </header>
+
+  {# ── Crear usuario ── #}
+  <div class="form-card mb-4">
+    <h2 class="form-title sm">Crear nuevo usuario</h2>
+    <form method="POST" action="{{ url_for('admin_create_user') }}" class="doc-form inline-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="text"     name="username" class="form-input" placeholder="Usuario"     required maxlength="64" />
+      <input type="email"    name="email"    class="form-input" placeholder="Email"        required maxlength="120" />
+      <input type="password" name="password" class="form-input" placeholder="Contraseña"  required maxlength="128" />
+      <select name="role" class="form-input">
+        {% for r in roles %}
+        <option value="{{ r }}">{{ r | capitalize }}</option>
+        {% endfor %}
+      </select>
+      <select name="sector" class="form-input">
+        <option value="">Todos los sectores</option>
+        {% for s in sectors %}
+        <option value="{{ s }}">{{ s | capitalize }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn-primary">Crear</button>
+    </form>
+  </div>
+
+  {# ── Tabla de usuarios ── #}
+  <div class="doc-table-wrapper">
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>ID</th><th>Usuario</th><th>Email</th><th>Rol</th><th>Sector</th><th>Activo</th><th>Último Login</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="mono">{{ u.id }}</td>
+          <td>{{ u.username }}</td>
+          <td>{{ u.email }}</td>
+          <td><span class="user-badge role-{{ u.role }}">{{ u.role }}</span></td>
+          <td>{{ u.sector or 'Todos' }}</td>
+          <td>{{ '✓' if u.is_active else '✗' }}</td>
+          <td class="mono">{{ u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

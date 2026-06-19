@@ -1,0 +1,78 @@
+{# templates/admin_audit.html #}
+{% extends "base.html" %}
+{% block title %}Log de Auditoría{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+  <header class="dash-header">
+    <h1 class="dash-title">Log de Auditoría</h1>
+    <a href="{{ url_for('admin_users') }}" class="btn-secondary">← Usuarios</a>
+  </header>
+  {# ── Panel Analítico SOC de Seguridad ── #}
+  <div class="stats-row mb-4">
+    <div class="stat-card">
+      <span class="stat-icon">📜</span>
+      <span class="stat-num">{{ stats.total }}</span>
+      <span class="stat-label">Eventos</span>
+    </div>
+    <div class="stat-card sector-clinica">
+      <span class="stat-icon">⚠️</span>
+      <span class="stat-num">{{ stats.alerts }}</span>
+      <span class="stat-label">Alertas</span>
+    </div>
+    <div class="stat-card sector-farmacia">
+      <span class="stat-icon">⬇️</span>
+      <span class="stat-num">{{ stats.downloads }}</span>
+      <span class="stat-label">Descargas</span>
+    </div>
+    <div class="stat-card sector-laboratorio">
+      <span class="stat-icon">⬆️</span>
+      <span class="stat-num">{{ stats.uploads }}</span>
+      <span class="stat-label">Subidas</span>
+    </div>
+  </div>
+
+  <div class="doc-table-wrapper">
+    <table class="doc-table">
+      <thead>
+        <tr><th>Fecha (UTC)</th><th>Usuario</th><th>Acción Realizada</th><th>Objetivo / Recurso</th><th>IP Cliente</th><th>Detalles de Auditoría</th></tr>
+      </thead>
+      <tbody>
+        {% for log in logs.items %}
+        <tr class="log-row {% if log.action in ['download_denied', 'login_failed'] %}security-breach{% endif %}">
+          <td class="mono small">{{ log.timestamp.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+          <td><strong>{{ log.user.username if log.user else 'Sistema' }}</strong></td>
+          <td>
+            <span class="action-badge action-{{ log.action }}">
+              {% if log.action == 'download_denied' %}
+                ⛔ Bloqueado
+              {% elif log.action == 'login_failed' %}
+                ⚠️ Fallido
+              {% elif log.action == 'upload' %}
+                📥 Subida
+              {% elif log.action == 'download' %}
+                📤 Descarga
+              {% elif log.action == 'view' %}
+                👁️ Vista
+              {% else %}
+                {{ log.action | capitalize }}
+              {% endif %}
+            </span>
+          </td>
+          <td class="mono small">{{ log.target_type or '—' }} {{ log.target_id or '' }}</td>
+          <td class="mono small">{{ log.ip_address or 'Localhost' }}</td>
+          <td class="mono small font-muted">{{ log.detail or 'Sin detalles' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if logs.pages > 1 %}
+  <nav class="pagination">
+    {% if logs.has_prev %}<a href="{{ url_for('admin_audit', page=logs.prev_num) }}" class="page-btn">← Anterior</a>{% endif %}
+    <span class="page-info">{{ logs.page }} / {{ logs.pages }}</span>
+    {% if logs.has_next %}<a href="{{ url_for('admin_audit', page=logs.next_num) }}" class="page-btn">Siguiente →</a>{% endif %}
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,129 @@
+{# templates/base.html — Layout base con seguridad XSS integrada #}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  {# CSP: bloquea scripts inline no autorizados, pero permitimos axios/font #}
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;" />
+  <title>{% block title %}HealthVault{% endblock %} — Sistema Médico de Gestión</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <!-- Usando fuentes modernas para un aspecto médico profesional: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chatbot.css') }}" />
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+{# ── Barra de navegación ──────────────────────────────────────────────── #}
+{% if current_user.is_authenticated %}
+<nav class="navbar">
+  <div class="nav-brand">
+    <span class="brand-icon">⚕️</span>
+    <span class="brand-name">HealthVault</span>
+  </div>
+  <div class="nav-links">
+    <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+      Expedientes
+    </a>
+    {% if current_user.can_upload() %}
+    <a href="{{ url_for('upload') }}" class="nav-link {% if request.endpoint == 'upload' %}active{% endif %}">
+      Nuevo Registro
+    </a>
+    {% endif %}
+    <a href="{{ url_for('trash') }}" class="nav-link {% if request.endpoint == 'trash' %}active{% endif %}">
+      Papelera
+    </a>
+    {% if current_user.role == RoleEnum.ADMIN %}
+    <a href="{{ url_for('admin_users') }}" class="nav-link {% if 'admin' in request.endpoint %}active{% endif %}">
+      Administración
+    </a>
+    {% endif %}
+  </div>
+  <div class="nav-user">
+    <span class="user-badge role-{{ current_user.role }}">{{ current_user.role }}</span>
+    <span class="user-name">{{ current_user.username }}</span>
+    <a href="{{ url_for('logout') }}" class="btn-logout">Salir</a>
+  </div>
+</nav>
+{% endif %}
+
+{# ── Mensajes Flash ───────────────────────────────────────────────────── #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-container">
+    {% for cat, msg in messages %}
+    <div class="flash flash-{{ cat }}">
+      <span>{{ msg }}</span>
+      <button onclick="this.parentElement.remove()" class="flash-close">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+{# ── Contenido principal ──────────────────────────────────────────────── #}
+<main class="main-content">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <span>HealthVault © {{ now.year }} — Sistema Seguro de Gestión en Salud</span>
+  {% if current_user.is_authenticated %}
+  <span class="footer-sector">
+    Área: {{ current_user.sector or 'Global' }}
+  </span>
+  {% endif %}
+</footer>
+
+{# ── Gemini AI Chatbot Widget ─────────────────────────────────────────── #}
+{% if current_user.is_authenticated %}
+<div id="chatbot-widget" class="chatbot-widget">
+  <button id="chatbot-toggle" class="chatbot-toggle-btn">
+    <span class="bot-icon">🤖</span>
+    <span class="bot-text">Asistente IA</span>
+  </button>
+  <div id="chatbot-window" class="chatbot-window hidden">
+    <div class="chatbot-header">
+      <h4>HealthVault Assistant</h4>
+      <button id="chatbot-close" class="close-btn">✕</button>
+    </div>
+    <div id="chatbot-messages" class="chatbot-messages">
+      <div class="message bot">Hola, soy el asistente inteligente de HealthVault. ¿En qué te puedo ayudar hoy?</div>
+    </div>
+    <div class="chatbot-input-area">
+      <input type="text" id="chatbot-input" placeholder="Escribe tu consulta..." autocomplete="off"/>
+      <button id="chatbot-send">Enviar</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function confirmDelete(event, form, message) {
+    event.preventDefault();
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: message,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.submit();
+        }
+    })
+}
+</script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

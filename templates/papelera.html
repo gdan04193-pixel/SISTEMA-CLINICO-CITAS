@@ -1,0 +1,68 @@
+{# templates/papelera.html #}
+{% extends "base.html" %}
+{% block title %}Papelera{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+  <header class="dash-header">
+    <div class="dash-title-block">
+      <h1 class="dash-title" style="color: #ef4444;">🗑️ Papelera</h1>
+      <p class="dash-subtitle">Documentos archivados/eliminados que puedes restaurar o borrar definitivamente.</p>
+    </div>
+  </header>
+
+  {% if docs %}
+  <div class="table-layout" style="display: block;">
+    <div class="doc-table-wrapper">
+      <table class="doc-table">
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Sector</th>
+            <th>Tamaño</th>
+            <th>Fecha Eliminado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in docs %}
+          <tr class="doc-row">
+            <td class="doc-title-cell">
+              <span class="doc-link" style="color:var(--text-muted);">{{ doc.title }}</span>
+            </td>
+            <td>
+              <span class="sector-badge sector-{{ doc.sector }}">
+                {{ doc.sector | capitalize }}
+              </span>
+            </td>
+            <td class="mono">{{ doc.size_human() }}</td>
+            <td class="mono">{{ doc.updated_at.strftime('%d/%m/%Y') }}</td>
+            <td class="actions-cell">
+              <form method="POST" action="{{ url_for('restore_document', doc_id=doc.id) }}" style="display:inline"
+                    onsubmit="confirmDelete(event, this, '¿Estás seguro de que deseas RESTAURAR este documento y devolverlo al Dashboard?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn-primary" style="padding: 0.4rem 0.8rem; font-size:0.85rem; background-color:#10b981; border:none; border-radius:6px; color:white; cursor:pointer;">↻ Restaurar</button>
+              </form>
+              
+              {% if current_user.can_delete(doc) %}
+              <form method="POST" action="{{ url_for('hard_delete_document', doc_id=doc.id) }}" style="display:inline; margin-left: 0.5rem;"
+                    onsubmit="confirmDelete(event, this, '¿Eliminar DEFINITIVAMENTE este archivo? No se podrá recuperar bajo ninguna circunstancia.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn-danger" style="padding: 0.4rem 0.8rem; font-size:0.85rem; border-radius:6px;">✕ Borrar</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon" style="filter: grayscale(1);">🗑️</div>
+    <p class="empty-msg">La papelera está vacía.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

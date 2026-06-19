@@ -1,0 +1,75 @@
+{# templates/upload.html #}
+{% extends "base.html" %}
+{% block title %}Subir Documento{% endblock %}
+
+{% block content %}
+<div class="form-page-wrapper">
+  <div class="form-card">
+    <h1 class="form-title">Subir Documento</h1>
+    <p class="form-subtitle">Los archivos se almacenan con nombre único cifrado. Máx. 20 MB.</p>
+
+    <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="doc-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input type="text" name="title" class="form-input" required maxlength="200"
+               placeholder="Ej. Protocolo de Atención de Urgencias" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Sector *</label>
+        <select name="sector" class="form-input" required>
+          <option value="">-- Selecciona un sector --</option>
+          {% for s in sectors %}
+          {% if current_user.role == 'admin' or current_user.sector == s or current_user.sector is none %}
+          <option value="{{ s }}">{{ s | capitalize }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea name="description" class="form-input form-textarea"
+                  placeholder="Breve descripción del contenido del documento…" maxlength="1000"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Etiquetas (separadas por coma)</label>
+        <input type="text" name="tags" class="form-input"
+               placeholder="Ej. protocolo, urgencias, 2025" maxlength="500" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Archivo * <small>(pdf, docx, xlsx, txt, png, jpg — máx. 20 MB)</small></label>
+        <div class="file-drop" id="fileDrop">
+          <input type="file" name="file" id="fileInput" required
+                 accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg"
+                 onchange="showFileName(this)" />
+          <div class="file-drop-content">
+            <span class="file-drop-icon">📎</span>
+            <span id="fileLabel">Arrastra un archivo o haz clic para seleccionar</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="{{ url_for('dashboard') }}" class="btn-secondary">Cancelar</a>
+        <button type="submit" class="btn-primary">Subir Documento</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showFileName(input) {
+  const label = document.getElementById('fileLabel');
+  label.textContent = input.files[0] ? input.files[0].name : 'Arrastra un archivo o haz clic para seleccionar';
+}
+// Drag-and-drop visual
+const drop = document.getElementById('fileDrop');
+['dragover','dragenter'].forEach(e => drop.addEventListener(e, () => drop.classList.add('drag-over')));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, () => drop.classList.remove('drag-over')));
+</script>
+{% endblock %}

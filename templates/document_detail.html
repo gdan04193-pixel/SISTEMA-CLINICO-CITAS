@@ -1,0 +1,185 @@
+{# templates/document_detail.html #}
+{% extends "base.html" %}
+{% block title %}{{ doc.title }}{% endblock %}
+
+{% block content %}
+<div class="form-page-wrapper">
+  <div class="form-card detail-card">
+    <div class="detail-header">
+      <span class="sector-badge sector-{{ doc.sector }} lg">{{ doc.sector | capitalize }}</span>
+      <h1 class="detail-title">{{ doc.title }}</h1>
+      {% if doc.description %}
+      <p class="detail-desc">{{ doc.description }}</p>
+      {% endif %}
+    </div>
+    <div class="detail-meta">
+      <div class="meta-item">
+        <span class="meta-label">Autor</span>
+        <span class="meta-val">{{ doc.owner.username }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Fecha</span>
+        <span class="meta-val mono">{{ doc.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Tamaño</span>
+        <span class="meta-val mono">{{ doc.size_human() }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Tipo</span>
+        <span class="meta-val mono">{{ doc.mime_type or '—' }}</span>
+      </div>
+    </div>
+    {% if doc.tag_list() %}
+    <div class="detail-tags">
+      {% for tag in doc.tag_list() %}
+      <span class="tag lg">{{ tag }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Módulo de Integridad Criptográfica SHA-256 ── #}
+    <div class="integrity-panel">
+      <div class="integrity-header">
+        <span class="integrity-icon">🛡️</span>
+        <span class="integrity-title">Firma de Integridad Digital</span>
+        <span class="integrity-status verified">✓ VERIFICADA</span>
+      </div>
+      <div class="integrity-hash-block">
+        <span class="hash-label">SHA-256 Checksum:</span>
+        <code class="hash-code" id="hashCode">{{ doc.get_sha256_hash() }}</code>
+        <button type="button" class="btn-copy-hash" onclick="copyHash()" title="Copiar Hash">📋</button>
+      </div>
+    </div>
+
+    {# ── Visor de Previsualización Segura (Sandbox) ── #}
+    <div class="sandbox-viewer">
+      <div class="sandbox-header">
+        <span class="sandbox-icon">👁️</span>
+        <span class="sandbox-title">Previsualización Segura en Sandbox</span>
+        <span class="sandbox-badge">ENCRIPTADO AES-256</span>
+      </div>
+      <div class="sandbox-preview-container">
+        {% if doc.mime_type == 'application/pdf' %}
+          <iframe src="{{ url_for('preview', doc_id=doc.id) }}#toolbar=0&amp;navpanes=0&amp;view=FitH" style="width:100%; height:650px; border:none; border-radius: 8px; background-color: #f3f4f6;" title="Vista previa del PDF"></iframe>
+        {% else %}
+          <div class="watermark">DOCUMENTO CONFIDENCIAL</div>
+          <div class="skeleton-doc">
+            <div class="skeleton-line title-line"></div>
+            <div class="skeleton-line body-line-1"></div>
+            <div class="skeleton-line body-line-2"></div>
+            <div class="skeleton-line body-line-3"></div>
+            <div class="skeleton-line body-line-4"></div>
+            <div class="skeleton-line body-line-2"></div>
+            <div class="skeleton-line body-line-3"></div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <script>
+    function copyHash() {
+      const hashCode = document.getElementById('hashCode').innerText;
+      navigator.clipboard.writeText(hashCode).then(() => {
+        const btn = document.querySelector('.btn-copy-hash');
+        btn.innerText = '✓';
+        setTimeout(() => btn.innerText = '📋', 2000);
+      });
+    }
+    </script>
+
+    <div class="detail-actions">
+      <a href="{{ url_for('download', doc_id=doc.id) }}" class="btn-primary">↓ Descargar</a>
+      {% if doc.mime_type == 'application/pdf' %}
+      <button type="button" class="btn-primary" style="background-color: #8b5cf6;" onclick="summarizeDoc({{ doc.id }})">✨ Resumir con IA</button>
+      {% endif %}
+      <a href="{{ url_for('dashboard') }}" class="btn-secondary">← Volver</a>
+      {% if current_user.can_delete(doc) %}
+      <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}" style="display:inline"
+            onsubmit="confirmDelete(event, this, '¿Eliminar este documento permanentemente?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit" class="btn-danger">Eliminar</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Línea de tiempo de auditoría ── #}
+  <div class="form-card audit-trail-card">
+    <h2 class="form-title sm">Historial de Auditoría e Integridad</h2>
+    <p class="form-subtitle">Trazabilidad inmutable de acciones en cumplimiento con normativas de seguridad.</p>
+    
+    <div class="audit-timeline">
+      {% if logs %}
+        {% for log in logs %}
+        <div class="timeline-item">
+          <div class="timeline-marker action-{{ log.action }}"></div>
+          <div class="timeline-content">
+            <div class="timeline-header">
+              <span class="action-badge action-{{ log.action }}">
+                {% if log.action == 'upload' %}
+                  Subida de Archivo
+                {% elif log.action == 'download' %}
+                  Descarga de Archivo
+                {% elif log.action == 'view' %}
+                  Visualización de Detalles
+                {% elif log.action == 'delete' %}
+                  Eliminación del Sistema
+                {% else %}
+                  {{ log.action | capitalize }}
+                {% endif %}
+              </span>
+              <span class="timeline-time mono">{{ log.timestamp.strftime('%d/%m/%Y %H:%M:%S') }} UTC</span>
+            </div>
+            <div class="timeline-body">
+              <span class="user-info">👤 <strong>{{ log.user.username if log.user else 'Sistema' }}</strong></span>
+              <span class="ip-info mono">🌐 IP: {{ log.ip_address or 'Local' }}</span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="empty-msg small">No se registran bitácoras de auditoría para este documento.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Modal Resumen IA -->
+<div id="aiModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:var(--surface); padding:2rem; border-radius:var(--radius-lg); max-width:600px; width:90%; max-height:80vh; overflow-y:auto; position:relative;">
+    <button onclick="document.getElementById('aiModal').style.display='none'" style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
+    <h2 style="color:var(--salud); margin-top:0;">✨ Resumen Clínico (IA)</h2>
+    <div id="aiLoading" style="display:none; text-align:center; padding:2rem;">
+      <div class="loader" style="width:30px; height:30px; margin:0 auto 1rem; border-color:var(--salud); border-bottom-color:transparent; display:block;"></div>
+      <p style="margin-top:10px;">Analizando documento...</p>
+    </div>
+    <div id="aiContent" style="margin-top:1rem; line-height:1.6;"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+async function summarizeDoc(docId) {
+  const modal = document.getElementById('aiModal');
+  const loading = document.getElementById('aiLoading');
+  const content = document.getElementById('aiContent');
+  
+  modal.style.display = 'flex';
+  loading.style.display = 'block';
+  content.innerHTML = '';
+  
+  try {
+    const response = await axios.post(`/api/summarize/${docId}`);
+    loading.style.display = 'none';
+    content.innerHTML = response.data.summary;
+  } catch (err) {
+    loading.style.display = 'none';
+    const errorMsg = err.response && err.response.data && err.response.data.error 
+                     ? err.response.data.error 
+                     : "Error de red al intentar generar el resumen.";
+    content.innerHTML = `<p style="color:red; font-weight:bold;">${errorMsg}</p>`;
+  }
+}
+</script>
+{% endblock %}

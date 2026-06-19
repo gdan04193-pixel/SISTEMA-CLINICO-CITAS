@@ -1,0 +1,12 @@
+# requirements.txt — Dependencias del proyecto HealthVault
+
+Flask==3.1.0
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Flask-WTF==1.2.1       # Protección CSRF automática
+psycopg2-binary==2.9.9  # Driver PostgreSQL
+Werkzeug==3.1.3         # Hashing seguro de contraseñas
+python-dotenv==1.0.1    # Variables de entorno desde .env
+google-genai>=0.3.0     # IA Gemini para Chatbot
+fpdf2>=2.7.9            # Generación automática de PDFs
+PyPDF2>=3.0.0           # Lectura de PDFs para resúmenes de I
