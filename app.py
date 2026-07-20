@@ -41,6 +41,7 @@ def create_app():
     app.config["SESSION_COOKIE_SECURE"]   = False
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
 
+    # ── Base de datos (PostgreSQL) ────────────────────────────────────────────
     db_url = os.environ.get(
         "DATABASE_URL",
         "postgresql://postgres:postgres@localhost:5432/docvault" # Mantenemos db actual por simplicidad, o healthvault
