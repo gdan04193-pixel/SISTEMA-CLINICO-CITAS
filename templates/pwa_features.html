@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}PWA – Notificaciones Push & Características Nativas{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pwa.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="pwa-panel">
+
+  <!-- ── Hero Banner ──────────────────────────────────────────────────────── -->
+  <div class="pwa-hero">
+    <div class="pwa-hero-content">
+      <h1>🚀 Prácticas 2.1 & 2.2 — PWA Completa Publicada</h1>
+      <p>
+        Integración total del App Shell, Manifiesto, Pantallas Splash, Modo Offline, Notificaciones Push y Acceso a Características Nativas.<br>
+        Despliegue Local con Contexto Seguro W3C · Vistas SSR & CSR · Sincronización de Datos.
+      </p>
+      <div class="pwa-hero-badges">
+        <span class="hero-badge">📱 App Shell & Manifiesto</span>
+        <span class="hero-badge">📡 Modo Offline</span>
+        <span class="hero-badge">🔔 Notificaciones Push</span>
+        <span class="hero-badge">📍 GPS & Cámara</span>
+        <span class="hero-badge">🔒 Contexto Seguro W3C</span>
+        <span class="hero-badge">🏠 Despliegue Local</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sección Teórica ──────────────────────────────────────────────────── -->
+  <div class="theory-section">
+    <h2>📖 Flujo de Notificaciones Push en PWA</h2>
+    <div class="theory-grid">
+      <div class="theory-item">
+        <h4>1️⃣ Permiso del Usuario</h4>
+        <p>El navegador solicita al usuario autorización explícita para recibir notificaciones mediante <code>Notification.requestPermission()</code>.</p>
+      </div>
+      <div class="theory-item">
+        <h4>2️⃣ Registro del SW</h4>
+        <p>Se registra un Service Worker que actúa como intermediario entre el servidor push y el navegador, incluso cuando la app está cerrada.</p>
+      </div>
+      <div class="theory-item">
+        <h4>3️⃣ Suscripción VAPID</h4>
+        <p>El SW suscribe al navegador usando claves VAPID. El endpoint único se envía al servidor para identificar al dispositivo.</p>
+      </div>
+      <div class="theory-item">
+        <h4>4️⃣ Servidor envía Push</h4>
+        <p>El servidor usa la biblioteca <code>pywebpush</code> para cifrar y enviar mensajes al Push Service del navegador (FCM, APNS, etc.).</p>
+      </div>
+      <div class="theory-item">
+        <h4>5️⃣ SW muestra notificación</h4>
+        <p>El Service Worker intercepta el evento <code>push</code> y llama a <code>showNotification()</code> para mostrar la alerta al usuario.</p>
+      </div>
+      <div class="theory-item">
+        <h4>6️⃣ Interacción</h4>
+        <p>Al hacer click, el evento <code>notificationclick</code> del SW puede abrir la app, navegar a una URL específica o ejecutar acciones.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Grid de Tarjetas ─────────────────────────────────────────────────── -->
+  <div class="pwa-grid">
+
+    <!-- Tarjeta: Service Worker -->
+    <div class="pwa-card card-success">
+      <div class="card-header">
+        <div class="card-icon icon-sw">⚙️</div>
+        <div class="card-title-group">
+          <h3>Service Worker</h3>
+          <p>Estado del worker en segundo plano</p>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Estado</span>
+        <span class="status-badge status-loading" id="sw-status">⏳ Inicializando...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Scope</span>
+        <span class="status-badge status-loading" id="sw-scope">/</span>
+      </div>
+    </div>
+
+    <!-- Tarjeta: Notificaciones Push -->
+    <div class="pwa-card">
+      <div class="card-header">
+        <div class="card-icon icon-push">🔔</div>
+        <div class="card-title-group">
+          <h3>Notificaciones Push</h3>
+          <p>Solicitar permiso y enviar notificaciones</p>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Permiso</span>
+        <span class="perm-badge perm-pending" id="notif-badge">❓ Pendiente</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Estado</span>
+        <span class="status-badge status-loading" id="notif-status">⏳ Verificando...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Suscripción</span>
+        <span class="status-badge status-loading" id="push-status">⏳ Pendiente</span>
+      </div>
+      <button class="btn-pwa btn-primary" id="btn-request-notif">
+        🔔 Solicitar Permiso de Notificaciones
+      </button>
+      <button class="btn-pwa btn-success" id="btn-test-notif">
+        📤 Enviar Notificación de Prueba
+      </button>
+    </div>
+
+    <!-- Tarjeta: Geolocalización -->
+    <div class="pwa-card card-geo">
+      <div class="card-header">
+        <div class="card-icon icon-geo">📍</div>
+        <div class="card-title-group">
+          <h3>Geolocalización</h3>
+          <p>Acceso a GPS del dispositivo</p>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Permiso</span>
+        <span class="perm-badge perm-pending" id="geo-badge">❓ Pendiente</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Estado</span>
+        <span class="status-badge status-loading" id="geo-status">⏳ Sin solicitar</span>
+      </div>
+      <button class="btn-pwa btn-geo" id="btn-request-geo">
+        📍 Obtener Mi Ubicación
+      </button>
+      <div id="geo-data"></div>
+    </div>
+
+    <!-- Tarjeta: Cámara & Micrófono -->
+    <div class="pwa-card card-cam">
+      <div class="card-header">
+        <div class="card-icon icon-cam">📷</div>
+        <div class="card-title-group">
+          <h3>Cámara & Micrófono</h3>
+          <p>Acceso a MediaDevices API</p>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Permiso</span>
+        <span class="perm-badge perm-pending" id="cam-badge">❓ Pendiente</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Estado</span>
+        <span class="status-badge status-loading" id="cam-status">⏳ Sin solicitar</span>
+      </div>
+      <div class="btn-group">
+        <button class="btn-pwa btn-cam" id="btn-request-cam">📷+🎙️ Cámara y Mic</button>
+        <button class="btn-pwa btn-secondary" id="btn-request-cam-only">📹 Solo Cámara</button>
+        <button class="btn-pwa btn-secondary" id="btn-request-mic-only">🎙️ Solo Mic</button>
+      </div>
+      <video id="camera-preview" autoplay muted playsinline></video>
+      <div id="cam-controls" class="btn-group" style="display:none; margin-top:0.5rem;">
+        <button class="btn-pwa btn-success" id="btn-capture">📸 Capturar Foto</button>
+        <button class="btn-pwa btn-danger" id="btn-stop-cam">⏹️ Detener</button>
+      </div>
+      <canvas id="photo-canvas"></canvas>
+      <div id="cam-data"></div>
+    </div>
+
+    <!-- Tarjeta: Instalabilidad & Manifiesto PWA (Práctica 2.2) -->
+    <div class="pwa-card card-manifest">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(14,165,233,0.15); color:#0ea5e9;">📱</div>
+        <div class="card-title-group">
+          <h3>Instalabilidad & Manifiesto</h3>
+          <p>Práctica 2.2: App Shell, Standalone & Splash</p>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Modo Visual</span>
+        <span class="perm-badge perm-granted" id="display-mode-badge">🖥️ Standalone PWA</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Manifiesto</span>
+        <span class="status-badge status-success" id="manifest-status">✅ /manifest.json (8 iconos)</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Contexto</span>
+        <span class="status-badge status-success" id="secure-context-badge">🔒 Contexto Seguro W3C</span>
+      </div>
+      <div class="btn-group" style="margin-top: 1rem;">
+        <button class="btn-pwa btn-primary" id="btn-trigger-install">
+          📲 Instalar PWA
+        </button>
+        <a href="/manifest.json" target="_blank" class="btn-pwa btn-secondary" style="text-align:center;">
+          📄 Ver Manifiesto
+        </a>
+      </div>
+    </div>
+
+    <!-- Tarjeta: Service Worker & Soporte Offline (Práctica 2.2) -->
+    <div class="pwa-card card-offline">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(16,185,129,0.15); color:#10b981;">📡</div>
+        <div class="card-title-group">
+          <h3>Service Worker & Caché Offline</h3>
+          <p>Práctica 2.2: Pre-caching & Fallback Offline</p>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Conexión</span>
+        <span class="perm-badge perm-granted" id="network-status-badge">🟢 En Línea (Online)</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Caché Activa</span>
+        <span class="status-badge status-success" id="cache-name-badge">📦 healthvault-v2.2-prod</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Ruta Fallback</span>
+        <span class="status-badge status-success">🛡️ /offline</span>
+      </div>
+      <div class="btn-group" style="margin-top: 1rem;">
+        <a href="/offline" class="btn-pwa btn-warning" style="text-align:center;">
+          🧪 Probar Pantalla Offline
+        </a>
+        <button class="btn-pwa btn-secondary" id="btn-inspect-cache">
+          🔍 Auditar Recursos en Caché
+        </button>
+      </div>
+      <div id="cache-audit-result" style="margin-top:0.75rem; font-size:0.8rem; color:#94a3b8;"></div>
+    </div>
+
+    <!-- Tarjeta: Log de Permisos (ancho completo) -->
+    <div class="pwa-card card-log pwa-full-card">
+      <div class="card-header">
+        <div class="card-icon icon-log">📋</div>
+        <div class="card-title-group">
+          <h3>Log de Eventos y Permisos</h3>
+          <p>Registro en tiempo real de todas las interacciones con APIs nativas</p>
+        </div>
+      </div>
+      <div id="permission-log">
+        <div class="log-entry log-iniciado">
+          <span class="log-time">[Sistema]</span> ℹ️ <strong>PWA Module</strong>: Iniciando...
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast de notificaciones UI -->
+<div class="pwa-toast" id="pwa-toast">Mensaje</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
+<script>
+  // Actualizar scope del SW al cargarse
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(reg => {
+      const scopeEl = document.getElementById('sw-scope');
+      if (scopeEl) scopeEl.textContent = reg.scope;
+    });
+  }
+</script>
+{% endblock %}

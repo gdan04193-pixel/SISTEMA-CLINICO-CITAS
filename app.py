@@ -641,6 +641,159 @@ def create_app():
             return jsonify({"error": f"Error del sistema: {error_str}"}), 500
 
     # ══════════════════════════════════════════════════════════════════════════
+    # PWA — Práctica 2.1: Push Notifications + Device Features
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # Almacén en memoria de suscripciones push (en producción usar DB)
+    push_subscriptions = {}
+
+    @app.route("/manifest.json")
+    def pwa_manifest():
+        """Manifiesto PWA integral para instalación en escritorio y móviles (Práctica 2.2)."""
+        manifest = {
+            "id": "/?source=pwa",
+            "name": "HealthVault – Sistema Clínico de Expedientes Médicos",
+            "short_name": "HealthVault",
+            "description": "PWA integral para gestión hospitalaria, expedientes médicos, sincronización offline y notificaciones push.",
+            "start_url": "/dashboard",
+            "scope": "/",
+            "display": "standalone",
+            "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+            "background_color": "#0f172a",
+            "theme_color": "#0ea5e9",
+            "orientation": "any",
+            "lang": "es-MX",
+            "dir": "ltr",
+            "icons": [
+                {"src": "/static/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "any"},
+                {"src": "/static/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any"},
+                {"src": "/static/icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any"},
+                {"src": "/static/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any"},
+                {"src": "/static/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any"},
+                {"src": "/static/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+                {"src": "/static/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any"},
+                {"src": "/static/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+            ],
+            "shortcuts": [
+                {
+                    "name": "Expedientes Médicos",
+                    "short_name": "Expedientes",
+                    "description": "Ver listado y auditoría de expedientes",
+                    "url": "/dashboard",
+                    "icons": [{"src": "/static/icons/icon-96x96.png", "sizes": "96x96"}]
+                },
+                {
+                    "name": "Consola PWA",
+                    "short_name": "PWA Tests",
+                    "description": "Pruebas de notificaciones, permisos y hardware",
+                    "url": "/pwa-features",
+                    "icons": [{"src": "/static/icons/icon-96x96.png", "sizes": "96x96"}]
+                },
+                {
+                    "name": "Nuevo Registro",
+                    "short_name": "Subir",
+                    "description": "Registrar nuevo expediente o documento médico",
+                    "url": "/upload",
+                    "icons": [{"src": "/static/icons/icon-96x96.png", "sizes": "96x96"}]
+                }
+            ],
+            "categories": ["medical", "health", "productivity", "management"]
+        }
+        return jsonify(manifest), 200, {
+            "Content-Type": "application/manifest+json; charset=utf-8",
+            "Cache-Control": "public, max-age=3600"
+        }
+
+    @app.route("/sw.js")
+    def pwa_sw():
+        """Sirve el Service Worker en la raíz con Service-Worker-Allowed: /"""
+        response = send_from_directory(os.path.join(app.root_path, "static"), "sw.js")
+        response.headers["Content-Type"] = "application/javascript"
+        response.headers["Service-Worker-Allowed"] = "/"
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return response
+
+    @app.route("/offline")
+    def pwa_offline():
+        """Página de fallback cuando el dispositivo está sin conexión."""
+        return render_template("offline.html")
+
+    @app.route("/pwa-features")
+    @login_required
+    def pwa_features():
+        """Página principal de pruebas PWA (Prácticas 2.1 y 2.2)."""
+        return render_template("pwa_features.html")
+
+    @app.route("/api/push/vapid-public-key")
+    def push_vapid_key():
+        """Devuelve la clave pública VAPID para suscripción push."""
+        vapid_public = os.environ.get("VAPID_PUBLIC_KEY", "")
+        return jsonify({"publicKey": vapid_public})
+
+    @app.route("/api/push/subscribe", methods=["POST"])
+    @login_required
+    @csrf.exempt
+    def push_subscribe():
+        """Registra la suscripción push del navegador del usuario."""
+        try:
+            sub_data = request.get_json()
+            if not sub_data or "endpoint" not in sub_data:
+                return jsonify({"error": "Datos de suscripción inválidos"}), 400
+            # Guardar suscripción asociada al usuario
+            push_subscriptions[current_user.id] = sub_data
+            logger.info(f"[PWA] Suscripción push registrada para usuario {current_user.id}")
+            log_action("subscribe", "push_notification", current_user.id,
+                       {"endpoint_preview": sub_data["endpoint"][:50]})
+            return jsonify({"ok": True, "message": "Suscripción registrada correctamente"})
+        except Exception as e:
+            logger.error(f"[PWA] Error al registrar suscripción: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/push/send-test", methods=["POST"])
+    @login_required
+    @csrf.exempt
+    def push_send_test():
+        """Envía una notificación push de prueba al usuario actual."""
+        try:
+            sub = push_subscriptions.get(current_user.id)
+            if not sub:
+                return jsonify({"message": "Sin suscripción activa. Usa la notificación local."}), 200
+
+            vapid_private = os.environ.get("VAPID_PRIVATE_KEY", "")
+            vapid_claims  = {
+                "sub": "mailto:admin@healthvault.com",
+            }
+
+            payload = json.dumps({
+                "title": "🏥 HealthVault – Notificación del Servidor",
+                "body": f"Hola {current_user.username}, este push fue enviado desde el servidor Flask.",
+                "icon": "/static/logo.png",
+                "badge": "/static/logo.png",
+                "data": {"url": "/dashboard"},
+                "tag": "server-push"
+            })
+
+            try:
+                from pywebpush import webpush, WebPushException
+                webpush(
+                    subscription_info=sub,
+                    data=payload,
+                    vapid_private_key=vapid_private,
+                    vapid_claims=vapid_claims
+                )
+                log_action("push_sent", "push_notification", current_user.id, {"type": "test"})
+                return jsonify({"ok": True, "message": "Push enviado desde el servidor"})
+            except ImportError:
+                return jsonify({"message": "pywebpush no instalado. Notificación local enviada."}), 200
+            except Exception as push_err:
+                logger.warning(f"[PWA] No se pudo enviar push: {push_err}")
+                return jsonify({"message": "Notificación local enviada (push server no disponible)"}), 200
+
+        except Exception as e:
+            logger.error(f"[PWA] Error en send-test: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    # ══════════════════════════════════════════════════════════════════════════
     # MANEJADORES DE ERROR
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -720,4 +873,13 @@ def _seed_data():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    use_https = os.environ.get("USE_HTTPS", "false").lower() in ("true", "1", "yes")
+    ssl_cert = os.path.join(os.path.dirname(__file__), "certs", "cert.pem")
+    ssl_key = os.path.join(os.path.dirname(__file__), "certs", "key.pem")
+
+    if use_https and os.path.exists(ssl_cert) and os.path.exists(ssl_key):
+        print("[HTTPS] Iniciando HealthVault PWA sobre HTTPS Local (https://127.0.0.1:5000)...")
+        app.run(debug=True, host="0.0.0.0", port=5000, ssl_context=(ssl_cert, ssl_key))
+    else:
+        print("[HTTP] Iniciando HealthVault PWA en Localhost Secure Context (http://127.0.0.1:5000)...")
+        app.run(debug=True, host="0.0.0.0", port=5000)

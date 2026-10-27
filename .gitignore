@@ -144,3 +144,5 @@ cython_debug/
 # Application specific
 uploads/*
 !uploads/.gitkeep
+.vapid_keys.txt
+certs/key.pem

@@ -7,6 +7,17 @@
   {# CSP: bloquea scripts inline no autorizados, pero permitimos axios/font #}
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;" />
+  {# PWA Práctica 2.2 — HealthVault App Shell #}
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="HealthVault" />
+  <meta name="application-name" content="HealthVault" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png" />
+  <meta name="csrf-token" content="{{ csrf_token() }}" />
   <title>{% block title %}HealthVault{% endblock %} — Sistema Médico de Gestión</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <!-- Usando fuentes modernas para un aspecto médico profesional: Inter -->
@@ -16,6 +27,12 @@
   {% block extra_css %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
+
+{# ── PWA Offline Banner ──────────────────────────────────────────────── #}
+<div id="pwa-offline-banner" class="pwa-offline-banner hidden">
+  <span>📡</span>
+  <span>Modo Sin Conexión (Offline) — Visualizando datos en caché local.</span>
+</div>
 
 {# ── Barra de navegación ──────────────────────────────────────────────── #}
 {% if current_user.is_authenticated %}
@@ -35,6 +52,9 @@
     {% endif %}
     <a href="{{ url_for('trash') }}" class="nav-link {% if request.endpoint == 'trash' %}active{% endif %}">
       Papelera
+    </a>
+    <a href="{{ url_for('pwa_features') }}" class="nav-link {% if request.endpoint == 'pwa_features' %}active{% endif %}" title="Práctica 2.1 PWA">
+      🚀 PWA
     </a>
     {% if current_user.role == RoleEnum.ADMIN %}
     <a href="{{ url_for('admin_users') }}" class="nav-link {% if 'admin' in request.endpoint %}active{% endif %}">
@@ -124,6 +144,93 @@ function confirmDelete(event, form, message) {
 </script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+
+{# ── PWA Install Banner ────────────────────────────────────────────────── #}
+<div id="pwa-install-banner" class="pwa-install-banner hidden">
+  <div class="install-content">
+    <span class="install-icon">📲</span>
+    <div>
+      <h5>Instalar HealthVault PWA</h5>
+      <p>Accede de forma instantánea y usa el sistema médico sin conexión.</p>
+    </div>
+  </div>
+  <div class="install-actions">
+    <button id="btn-pwa-install" class="btn-pwa-install">Instalar</button>
+    <button id="btn-pwa-dismiss" class="btn-pwa-dismiss" title="Cerrar">✕</button>
+  </div>
+</div>
+
+{# ── PWA Global App Shell Script ───────────────────────────────────────── #}
+<script>
+// Registrar Service Worker globalmente en el App Shell
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(reg => {
+        console.log('[AppShell] Service Worker v2.2 registrado en scope:', reg.scope);
+      })
+      .catch(err => {
+        console.warn('[AppShell] Fallo registro SW:', err);
+      });
+  });
+}
+
+// Detección reactiva de conexión online/offline
+function checkNetworkStatus() {
+  const banner = document.getElementById('pwa-offline-banner');
+  if (!banner) return;
+  if (!navigator.onLine) {
+    banner.classList.remove('hidden');
+  } else {
+    banner.classList.add('hidden');
+  }
+}
+window.addEventListener('online', checkNetworkStatus);
+window.addEventListener('offline', checkNetworkStatus);
+checkNetworkStatus();
+
+// Captura del evento beforeinstallprompt para instalación PWA
+let pwaInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  pwaInstallPrompt = e;
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner && !sessionStorage.getItem('pwa_prompt_dismissed')) {
+    banner.classList.remove('hidden');
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const installBtn = document.getElementById('btn-pwa-install');
+  const dismissBtn = document.getElementById('btn-pwa-dismiss');
+  const banner = document.getElementById('pwa-install-banner');
+
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      if (!pwaInstallPrompt) return;
+      banner.classList.add('hidden');
+      pwaInstallPrompt.prompt();
+      const choice = await pwaInstallPrompt.userChoice;
+      console.log('[PWA] Selección de usuario:', choice.outcome);
+      pwaInstallPrompt = null;
+    });
+  }
+
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      banner.classList.add('hidden');
+      sessionStorage.setItem('pwa_prompt_dismissed', '1');
+    });
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('[PWA] HealthVault fue instalada exitosamente en el sistema.');
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.classList.add('hidden');
+});
+</script>
+
 {% block extra_js %}{% endblock %}
 </body>
 </html>
